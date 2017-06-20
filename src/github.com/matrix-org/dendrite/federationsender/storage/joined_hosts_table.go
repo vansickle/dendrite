@@ -17,6 +17,7 @@ package storage
 import (
 	"database/sql"
 	"github.com/lib/pq"
+	"github.com/matrix-org/dendrite/federationsender/types"
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
@@ -24,11 +25,11 @@ const joinedHostsSchema = `
 -- The joined_hosts table stores a list of m.room.member event ids in the
 -- current state for each room where the membership is "join".
 CREATE TABLE IF NOT EXISTS joined_hosts (
-	-- The string ID of the room.
+    -- The string ID of the room.
     room_id TEXT NOT NULL,
-	-- The event ID of the m.room.member
+    -- The event ID of the m.room.member
     event_id TEXT NOT NULL,
-	-- The domain part of the user ID the m.room.member event is for.
+    -- The domain part of the user ID the m.room.member event is for.
     server_name TEXT NOT NULL,
 );
 
@@ -86,21 +87,23 @@ func (s *joinedHostsStatements) deleteJoinedHosts(txn *sql.Tx, eventIDs []string
 }
 
 func (s *joinedHostsStatements) selectJoinedHosts(txn *sql.Tx, roomID string,
-) (map[gomatrixserverlib.ServerName][]string, error) {
+) ([]types.JoinedHost, error) {
 	rows, err := txn.Stmt(s.selectJoinedHostsStmt).Query(roomID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	result := map[gomatrixserverlib.ServerName][]string{}
+	var result []types.JoinedHost
 	for rows.Next() {
-		var eventID, serverNameStr string
-		if err = rows.Scan(&eventID, &serverNameStr); err != nil {
+		var eventID, serverName string
+		if err = rows.Scan(&eventID, &serverName); err != nil {
 			return nil, err
 		}
-		serverName := gomatrixserverlib.ServerName(serverNameStr)
-		result[serverName] = append(result[serverName], eventID)
+		result = append(result, types.JoinedHost{
+			EventID:    eventID,
+			ServerName: gomatrixserverlib.ServerName(serverName),
+		})
 	}
 	return result, nil
 }
