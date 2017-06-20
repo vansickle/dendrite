@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package api provides the types that are used to communicate with the roomserver.
-
 package storage
 
 import (
