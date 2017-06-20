@@ -21,9 +21,14 @@ import (
 )
 
 const joinedHostsSchema = `
+-- The joined_hosts table stores a list of m.room.member event ids in the
+-- current state for each room where the membership is "join".
 CREATE TABLE IF NOT EXISTS joined_hosts (
+	-- The string ID of the room.
     room_id TEXT NOT NULL,
+	-- The event ID of the m.room.member
     event_id TEXT NOT NULL,
+	-- The domain part of the user ID the m.room.member event is for.
     server_name TEXT NOT NULL,
 );
 
