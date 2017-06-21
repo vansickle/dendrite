@@ -2,13 +2,15 @@ package storage
 
 import (
 	"database/sql"
+	"github.com/matrix-org/dendrite/common"
 	"github.com/matrix-org/dendrite/federationsender/types"
 )
 
-// Database ...
+// Database stores information needed by the federation sender
 type Database struct {
 	joinedHostsStatements
 	roomStatements
+	common.PartitionOffsetStatements
 	db *sql.DB
 }
 
@@ -23,12 +25,26 @@ func (d *Database) prepare() error {
 		return err
 	}
 
+	if err = d.PartitionOffsetStatements.Prepare(d.db); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// UpdateRoom implements
+// PartitionOffsets implements common.PartitionStorer
+func (d *Database) PartitionOffsets(topic string) ([]common.PartitionOffset, error) {
+	return d.SelectPartitionOffsets(topic)
+}
+
+// SetPartitionOffset implements common.PartitionStorer
+func (d *Database) SetPartitionOffset(topic string, partition int32, offset int64) error {
+	return d.UpsertPartitionOffset(topic, partition, offset)
+}
+
+// UpdateRoom updates the joined hosts for a room.
 func (d *Database) UpdateRoom(
-	roomID, oldLastSentEventID, newLastSentEventID string,
+	roomID, oldEventID, newEventID string,
 	addHosts []types.JoinedHost,
 	removeHosts []string,
 ) (joinedHosts []types.JoinedHost, err error) {
@@ -40,8 +56,8 @@ func (d *Database) UpdateRoom(
 		if err != nil {
 			return err
 		}
-		if lastSentEventID != oldLastSentEventID {
-			return types.LastSentIDMismatchError{lastSentEventID, oldLastSentEventID}
+		if lastSentEventID != oldEventID {
+			return types.EventIDMismatchError{lastSentEventID, oldEventID}
 		}
 		joinedHosts, err = d.selectJoinedHosts(txn, roomID)
 		if err != nil {
@@ -56,7 +72,7 @@ func (d *Database) UpdateRoom(
 		if err = d.deleteJoinedHosts(txn, removeHosts); err != nil {
 			return err
 		}
-		return d.updateRoom(txn, roomID, newLastSentEventID)
+		return d.updateRoom(txn, roomID, newEventID)
 	})
 	return
 }

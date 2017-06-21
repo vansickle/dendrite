@@ -25,20 +25,20 @@ CREATE TABLE IF NOT EXISTS rooms (
     -- The most recent event state by the room server.
     -- We can use this to tell if our view of the room state has become
     -- desynchronised.
-    last_sent_event_id TEXT NOT NULL
+    last_event_id TEXT NOT NULL
 );`
 
 const insertRoomSQL = "" +
-	"INSERT INTO rooms (room_id, last_sent_event_id)" +
+	"INSERT INTO rooms (room_id, last_event_id)" +
 	" VALUES ($1, '')" +
 	" ON CONFLICT ON CONSTRAINT room_id_unique" +
 	" DO NOTHING"
 
 const selectRoomForUpdateSQL = "" +
-	"SELECT last_sent_event_id FROM rooms WHERE room_id = $1 FOR UPDATE"
+	"SELECT last_event_id FROM rooms WHERE room_id = $1 FOR UPDATE"
 
 const updateRoomSQL = "" +
-	"UPDATE rooms SET last_sent_event_id = $2 WHERE room_id = $1"
+	"UPDATE rooms SET last_event_id = $2 WHERE room_id = $1"
 
 type roomStatements struct {
 	insertRoomStmt          *sql.Stmt
@@ -70,15 +70,15 @@ func (s *roomStatements) insertRoom(txn *sql.Tx, roomID string) error {
 }
 
 func (s *roomStatements) selectRoomForUpdate(txn *sql.Tx, roomID string) (string, error) {
-	var lastSentEventID string
-	err := txn.Stmt(s.insertRoomStmt).QueryRow(roomID).Scan(&lastSentEventID)
+	var lastEventID string
+	err := txn.Stmt(s.insertRoomStmt).QueryRow(roomID).Scan(&lastEventID)
 	if err != nil {
 		return "", err
 	}
-	return lastSentEventID, nil
+	return lastEventID, nil
 }
 
-func (s *roomStatements) updateRoom(txn *sql.Tx, roomID, lastSentEventID string) error {
-	_, err := txn.Stmt(s.updateRoomStmt).Exec(roomID, lastSentEventID)
+func (s *roomStatements) updateRoom(txn *sql.Tx, roomID, lastEventID string) error {
+	_, err := txn.Stmt(s.updateRoomStmt).Exec(roomID, lastEventID)
 	return err
 }
