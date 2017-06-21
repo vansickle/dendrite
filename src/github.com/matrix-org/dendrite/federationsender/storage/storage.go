@@ -14,6 +14,19 @@ type Database struct {
 	db *sql.DB
 }
 
+// NewDatabase opens a new database
+func NewDatabase(dataSourceName string) (*Database, error) {
+	var result Database
+	var err error
+	if result.db, err = sql.Open("postgres", dataSourceName); err != nil {
+		return nil, err
+	}
+	if err = result.prepare(); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (d *Database) prepare() error {
 	var err error
 
