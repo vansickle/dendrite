@@ -30,22 +30,22 @@ CREATE TABLE IF NOT EXISTS joined_hosts (
     -- The event ID of the m.room.member
     event_id TEXT NOT NULL,
     -- The domain part of the user ID the m.room.member event is for.
-    server_name TEXT NOT NULL,
+    server_name TEXT NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS joined_hosts_event_id_idx
     ON joined_hosts (event_id);
 
-CREATE INDEX IF NOT EXITS joined_hosts_room_id_idx
+CREATE INDEX IF NOT EXISTS joined_hosts_room_id_idx
     ON joined_hosts (room_id)
 `
 
 const insertJoinedHostsSQL = "" +
-	"INSERT INTO current_state (room_id, event_id, server_name)" +
+	"INSERT INTO joined_hosts (room_id, event_id, server_name)" +
 	" VALUES ($1, $2, $3)"
 
 const deleteJoinedHostsSQL = "" +
-	"DELETE FROM current_state WHERE event_id = ANY($1)"
+	"DELETE FROM joined_hosts WHERE event_id = ANY($1)"
 
 const selectJoinedHostsSQL = "" +
 	"SELECT event_id, server_name FROM joined_hosts" +

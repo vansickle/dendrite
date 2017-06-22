@@ -71,7 +71,7 @@ func (s *roomStatements) insertRoom(txn *sql.Tx, roomID string) error {
 
 func (s *roomStatements) selectRoomForUpdate(txn *sql.Tx, roomID string) (string, error) {
 	var lastEventID string
-	err := txn.Stmt(s.insertRoomStmt).QueryRow(roomID).Scan(&lastEventID)
+	err := txn.Stmt(s.selectRoomForUpdateStmt).QueryRow(roomID).Scan(&lastEventID)
 	if err != nil {
 		return "", err
 	}

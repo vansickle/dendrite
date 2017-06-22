@@ -22,7 +22,9 @@ import (
 	"github.com/matrix-org/dendrite/common"
 	"github.com/matrix-org/dendrite/common/config"
 	"github.com/matrix-org/dendrite/federationsender/consumers"
+	"github.com/matrix-org/dendrite/federationsender/queue"
 	"github.com/matrix-org/dendrite/federationsender/storage"
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/prometheus/client_golang/prometheus"
 
 	log "github.com/Sirupsen/logrus"
@@ -50,12 +52,18 @@ func main() {
 		log.Panicf("startup: failed to create federation sender database with data source %s : %s", cfg.Database.FederationSender, err)
 	}
 
-	consumer, err := consumers.NewOutputRoomEvent(cfg, db)
+	federation := gomatrixserverlib.NewFederationClient(
+		cfg.Matrix.ServerName, cfg.Matrix.KeyID, cfg.Matrix.PrivateKey,
+	)
+
+	queues := queue.NewOutgoingQueues(cfg.Matrix.ServerName, federation)
+
+	consumer, err := consumers.NewOutputRoomEvent(cfg, queues, db)
 	if err != nil {
-		log.Panicf("startup: failed to create room server consumer: %s", err)
+		log.WithError(err).Panicf("startup: failed to create room server consumer")
 	}
 	if err = consumer.Start(); err != nil {
-		log.Panicf("startup: failed to start room server consumer")
+		log.WithError(err).Panicf("startup: failed to start room server consumer")
 	}
 
 	http.DefaultServeMux.Handle("/metrics", prometheus.Handler())

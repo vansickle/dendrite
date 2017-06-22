@@ -22,6 +22,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/matrix-org/dendrite/common"
 	"github.com/matrix-org/dendrite/common/config"
+	"github.com/matrix-org/dendrite/federationsender/queue"
 	"github.com/matrix-org/dendrite/federationsender/storage"
 	"github.com/matrix-org/dendrite/federationsender/types"
 	"github.com/matrix-org/dendrite/roomserver/api"
@@ -33,11 +34,12 @@ import (
 type OutputRoomEvent struct {
 	roomServerConsumer *common.ContinualConsumer
 	db                 *storage.Database
+	queues             *queue.OutgoingQueues
 	query              api.RoomserverQueryAPI
 }
 
 // NewOutputRoomEvent creates a new OutputRoomEvent consumer. Call Start() to begin consuming from room servers.
-func NewOutputRoomEvent(cfg *config.Dendrite, store *storage.Database) (*OutputRoomEvent, error) {
+func NewOutputRoomEvent(cfg *config.Dendrite, queues *queue.OutgoingQueues, store *storage.Database) (*OutputRoomEvent, error) {
 	kafkaConsumer, err := sarama.NewConsumer(cfg.Kafka.Addresses, nil)
 	if err != nil {
 		return nil, err
@@ -52,6 +54,7 @@ func NewOutputRoomEvent(cfg *config.Dendrite, store *storage.Database) (*OutputR
 	s := &OutputRoomEvent{
 		roomServerConsumer: &consumer,
 		db:                 store,
+		queues:             queues,
 		query:              api.NewRoomserverQueryAPIHTTP(roomServerURL, nil),
 	}
 	consumer.ProcessMessage = s.onMessage
@@ -82,11 +85,12 @@ func (s *OutputRoomEvent) onMessage(msg *sarama.ConsumerMessage) error {
 		return nil
 	}
 	log.WithFields(log.Fields{
-		"event_id": ev.EventID(),
-		"room_id":  ev.RoomID(),
+		"event_id":       ev.EventID(),
+		"room_id":        ev.RoomID(),
+		"send_as_server": output.SendAsServer,
 	}).Info("received event from roomserver")
 
-	s.processMessage(output, ev)
+	err = s.processMessage(output, ev)
 
 	if err != nil {
 		// panic rather than continue with an inconsistent database
@@ -124,8 +128,19 @@ func (s *OutputRoomEvent) processMessage(ore api.OutputRoomEvent, ev gomatrixser
 		return err
 	}
 
-	_, err = s.joinedHostsAtEvent(ore, ev, oldJoinedHosts)
+	if ore.SendAsServer == "" {
+		// Ignore event that we don't need to send anywhere.
+		return nil
+	}
+
+	joinedHosts, err := s.joinedHostsAtEvent(ore, ev, oldJoinedHosts)
 	if err != nil {
+		return err
+	}
+
+	if err = s.queues.SendEvent(
+		&ev, gomatrixserverlib.ServerName(ore.SendAsServer), joinedHosts,
+	); err != nil {
 		return err
 	}
 

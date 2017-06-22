@@ -36,6 +36,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	common.SetupLogging(logDir)
 
 	if *configPath == "" {
