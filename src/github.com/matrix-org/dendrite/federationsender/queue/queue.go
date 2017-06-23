@@ -110,8 +110,10 @@ func (oq *outgoingQueue) backgroundSend() {
 
 		_, err := oq.client.SendTransaction(*t)
 		if err != nil {
-			// TODO: log the error
-			panic(err)
+			log.WithFields(log.Fields{
+				"destination": oq.destination,
+				log.ErrorKey:  err,
+			}).Info("problem sending transaction")
 		}
 	}
 }
