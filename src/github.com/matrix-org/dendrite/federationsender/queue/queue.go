@@ -17,6 +17,7 @@ type OutgoingQueues struct {
 	client *gomatrixserverlib.FederationClient
 }
 
+// NewOutgoingQueues makes a new OutgoingQueues
 func NewOutgoingQueues(origin gomatrixserverlib.ServerName, client *gomatrixserverlib.FederationClient) *OutgoingQueues {
 	return &OutgoingQueues{
 		origin: origin,
